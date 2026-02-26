@@ -12,11 +12,13 @@ import MyEnrolledCoursesPage from "../../pages/MyEnrolledCourses/MyEnrolledCours
 import InstructorCoursesPage from "../../pages/InstructorCourses/InstructorCoursesPage";
 import LessonViewerPage from "../../pages/LessonViewer/LessonViewerPage";
 import NotFoundPage from "../../pages/NotFoundPage";
+import ToastHost from "../../shared/ui/ToastHost";
 
 function Shell() {
   return (
     <AppShell>
       <MainLayout />
+      <ToastHost/>
     </AppShell>
   );
 }

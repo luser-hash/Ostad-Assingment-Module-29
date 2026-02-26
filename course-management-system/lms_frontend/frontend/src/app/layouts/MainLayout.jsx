@@ -1,5 +1,6 @@
 import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
+import { toastShow } from "../../shared/ui/toastStore";
 
 function NavLink({ to, children }) {
   return (
@@ -61,7 +62,10 @@ export default function MainLayout() {
             </>
           ) : (
             <button
-              onClick={logout}
+              onClick={ () => {
+                logout();
+                toastShow("Logged out", "success");
+              }}
               style={{
                 padding: "8px 10px",
                 borderRadius: 10,

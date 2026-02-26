@@ -4,7 +4,7 @@ from django.db.models import Count
 
 from rest_framework import generics, permissions, serializers
 from rest_framework.views import APIView, Response
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Course, Lessons, Enrollment, LessonProgress
 
@@ -24,16 +24,9 @@ from .permissions import (
 )
 
 
-class CourseListPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"  # frontend can override it
-    max_page_size = 30
-
-
 class CourseListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = CourseSerializer
-    pagination_class = CourseListPagination
 
     queryset = (
         Course.objects
@@ -46,7 +39,6 @@ class CourseListView(generics.ListAPIView):
 class InstructorCourseListApiView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated, IsInstructor]
     serializer_class = CourseSerializer
-    pagination_class = CourseListPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -87,6 +79,27 @@ class LessonListByCourseView(generics.ListAPIView):
     def get_queryset(self):
         course_id = self.kwargs["course_id"]
         return Lessons.objects.filter(course_id=course_id).order_by("order")
+    
+
+class CourseLessonDetailApiView(generics.ListAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = LessonSerializers
+
+    # url: courses/course_id/lessons/lesson_id
+    def get_queryset(self):
+        course = self.kwargs["course_id"]
+        lesson = self.kwargs["lesson_id"]
+
+        return Lessons.objects.filter(course=course, id=lesson)
+
+
+class LessonDetailApiView(generics.ListAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = LessonSerializers
+
+    def get_queryset(self):
+        lesson_id = self.kwargs['lesson_id']
+        return Lessons.objects.filter(id=lesson_id)
 
 
 class LessonCreateApiView(generics.CreateAPIView):
@@ -104,7 +117,13 @@ class LessonCreateApiView(generics.CreateAPIView):
 class LessonUpdateDeleteApiView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsOwnerInstructorOrReadOnly]
     serializer_class = LessonSerializers
-    queryset = Lessons.objects.select_related("course").all()
+    
+    def get_object(self):
+        return get_object_or_404(
+            Lessons.objects.select_related("course"),
+            pk=self.kwargs["lesson_id"],
+            course_id=self.kwargs["course_id"],
+        )
 
 
 class EnrollCourseAPiView(generics.CreateAPIView):
@@ -133,36 +152,45 @@ class MarkLessonCompletedApiView(generics.CreateAPIView):
     serializer_class = LessonProgressSerializer
 
     def perform_create(self, serializer):
-        lesson = get_object_or_404(Lessons, pk=self.kwargs['pk'])
+        course_id = self.kwargs['course_id']
+        lesson_id = self.kwargs['lesson_id']
+
+        # Fetch lesson and ensure it belongs to the course
+        lesson = get_object_or_404(Lessons, id=lesson_id, course_id=course_id)
+
+        # Ensure student is enrolled in that course
+        if not Enrollment.objects.filter(student=self.request.user, course_id=course_id).exists():
+            raise PermissionDenied("You are not enrolled in this course.")
         try:
             serializer.save(student=self.request.user, lesson=lesson, completed=True)
         except IntegrityError:
-            raise serializers.ValidationError({"detail": "Progress already exists for this lesson."})
+            raise serializers.ValidationError({"detail": "Lesson Already Completed!"})
 
 
-class LessonPogressApiView(APIView):
+class ListLessonPogressPerCourseApiView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStudent]
 
-    def get(self, request, lesson_id):
-        # Get the Lesson
-        lesson = get_object_or_404(Lessons, pk=lesson_id)
+    def get(self, request, course_id):
 
-        # Check the completion status of the lesson
-        is_completed = LessonProgress.objects.filter(
-            student=request.user,
-            lesson=lesson,
-            completed=True
-            ).first()
+        # GET /courses/:courseId/progress/  -> { completed_lessons: [1,2,3] } 
 
-        completed = is_completed.completed if is_completed else False
+        user = request.user
+        course = get_object_or_404(Course, pk=course_id)
 
-        return Response(
-            {
-                "lesson_id": lesson.id,
-                "title": lesson.title,
-                "Completed": completed,
-            }
+        # Must be enrolled
+        if not Enrollment.objects.filter(student=user, course=course).exists():
+            raise PermissionDenied("You are not enrolled in this course!")
+        
+        # Progress rows for this student, for lessons in this course,that are completed
+        completed_lessons_ids = list(
+            LessonProgress.objects.filter(
+                student=user,
+                lesson__course=course,
+                completed=True
+            ).values_list("lesson_id", flat=True)
         )
+
+        return Response({"completed_lessons": completed_lessons_ids})
 
 
 class CourseProgressApiView(APIView):

@@ -7,6 +7,8 @@ import { getCourseApi } from "../../entities/course/courseApi";
 import { listLessonsForCourseApi } from "../../entities/lesson/lessonApi";
 import { enrollInCourseApi } from "../../features/enroll/enrollApi";
 import { useAuth } from "../../app/providers/AuthProvider";
+import ManageLessonsPanel from "../../features/instructor/ManageLessonsPanel";
+import { getCourseProgressApi } from "../../features/enroll/progressReadApi";
 
 function Pill({ children }) {
   return (
@@ -64,6 +66,9 @@ export default function CourseDetailsPage() {
   const [enrolling, setEnrolling] = useState(false);
   const [enrollMsg, setEnrollMsg] = useState("");
 
+  const [completedSet, setCompletedSet] = useState(new Set());
+  const [progressLoading, setProgressLoading] = useState(false);
+
   async function load() {
     setError("");
     setLoading(true);
@@ -83,6 +88,29 @@ export default function CourseDetailsPage() {
         const items = Array.isArray(data) ? data : data?.results ?? [];
         setLessons(items);
       }
+
+      if (isAuthed) {
+        setProgressLoading(true);
+        try {
+          const p = await getCourseProgressApi(courseId);
+
+          // Normalize shapes:
+          // A) { completed_lessons: [11,12] }
+          const ids = Array.isArray(p?.completed_lessons)
+            ? p.completed_lessons
+            : Array.isArray(p)
+              ? p.filter(x => x.completed).map(x => x.lesson) // B) list of rows
+              : [];
+
+          setCompletedSet(new Set(ids.map(String)));
+        } catch {
+          // ignore if endpoint not ready yet
+          setCompletedSet(new Set());
+        } finally {
+          setProgressLoading(false);
+        }
+      }
+
     } catch (e) {
       const msg = getMessageText(
         e?.response?.data?.detail ?? e?.response?.data?.message ?? e?.response?.data,
@@ -222,6 +250,12 @@ export default function CourseDetailsPage() {
       <section style={{ display: "grid", gap: 10 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 1000 }}>Lessons</h3>
 
+        {progressLoading && (
+          <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 800 }}>
+            Loading progress…
+          </div>
+        )}
+
         {lessons.length === 0 ? (
           <div
             style={{
@@ -251,8 +285,22 @@ export default function CourseDetailsPage() {
                 }}
               >
                 <div style={{ display: "grid", gap: 4 }}>
-                  <div style={{ fontWeight: 1000 }}>
-                    {lesson.title ?? `Lesson ${idx + 1}`}
+                  <div style={{ fontWeight: 1000, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>{lesson.title ?? `Lesson ${idx + 1}`}</span>
+                    {completedSet.has(String(lesson.id)) && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 1000,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: "1px solid #16a34a",
+                          color: "#16a34a",
+                        }}
+                      >
+                        ✓ Completed
+                      </span>
+                    )}
                   </div>
                   {lesson.summary && (
                     <div style={{ fontSize: 13, opacity: 0.75 }}>{lesson.summary}</div>
@@ -279,6 +327,10 @@ export default function CourseDetailsPage() {
           </div>
         )}
       </section>
+
+      {isAuthed && user?.role === "instructor" && (
+        <ManageLessonsPanel courseId={courseId} />
+      )}
     </div>
   );
 }

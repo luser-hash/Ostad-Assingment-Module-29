@@ -98,14 +98,11 @@ class LessonProgressSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         user = request.user
 
-        lesson_id = self.context["view"].kwargs.get("pk")
+        lesson_id = self.context["view"].kwargs.get("lesson_id")
         lesson = get_object_or_404(models.Lessons, pk=lesson_id)
 
         # Must be enrolled in the lesson's course
         if not models.Enrollment.objects.filter(student=user, course=lesson.course).exists():
             raise serializers.ValidationError({"detail": "You're not enrolled in this course."})
-
-        if models.LessonProgress.objects.filter(student=user, lesson=lesson).exists():
-            raise serializers.ValidationError({"detail": "Progress already exists for this lesson."})
 
         return attrs

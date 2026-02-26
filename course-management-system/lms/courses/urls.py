@@ -9,13 +9,15 @@ from .views import (
     LessonListByCourseView,
     LessonCreateApiView,
     LessonUpdateDeleteApiView,
+    CourseLessonDetailApiView,
+    LessonDetailApiView,
 
     EnrollCourseAPiView,
     MyEnrolledCoursesApiView,
 
     MarkLessonCompletedApiView,
     CourseProgressApiView,
-    LessonPogressApiView,
+    ListLessonPogressPerCourseApiView,
     )
 
 urlpatterns = [
@@ -30,14 +32,16 @@ urlpatterns = [
     # URLs for Lessons
     path("courses/<int:course_id>/lessons/", LessonListByCourseView.as_view()),
     path("courses/<int:course_id>/lessons/create", LessonCreateApiView.as_view()),
-    path("lessons/<int:pk>/manage/", LessonUpdateDeleteApiView.as_view()),
+    path("courses/<int:course_id>/lessons/<int:lesson_id>/manage/", LessonUpdateDeleteApiView.as_view()),
+    path("lessons/<int:lesson_id>", LessonDetailApiView.as_view()),
+    path("courses/<int:course_id>/lessons/<int:lesson_id>/", CourseLessonDetailApiView.as_view()),
 
     # URLs for Enrollments
     path("courses/<int:pk>/enrollment/", EnrollCourseAPiView.as_view()),
     path("myenrollments/", MyEnrolledCoursesApiView.as_view()),
 
     # Lessson Completion
-    path("lessons/<int:pk>/completed/", MarkLessonCompletedApiView.as_view()),
+    path("courses/<int:course_id>/lessons/<int:lesson_id>/completed/", MarkLessonCompletedApiView.as_view()),
     path("courses/<int:course_id>/progress/", CourseProgressApiView.as_view()),
-    path("lessons/per/completion/<int:lesson_id>/", LessonPogressApiView.as_view()),
+    path("courses/<int:course_id>/progress/list/", ListLessonPogressPerCourseApiView.as_view()),
 ]
