@@ -195,7 +195,7 @@ export default function ManageLessonsPanel({ courseId }) {
                 </div>
                 {(l.duration != null) && (
                   <div style={{ fontSize: 12, opacity: 0.75, fontWeight: 800 }}>
-                    Duration: {l.duration}s
+                    Duration: {l.duration} min
                   </div>
                 )}
               </div>

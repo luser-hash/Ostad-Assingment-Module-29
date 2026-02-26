@@ -21,6 +21,79 @@ function toMessageText(value, fallback) {
   return fallback;
 }
 
+function normalizeLessonResponse(data) {
+  if (!data) return null;
+  if (Array.isArray(data)) return data[0] ?? null;
+  if (Array.isArray(data?.results)) return data.results[0] ?? null;
+  return typeof data === "object" ? data : null;
+}
+
+function formatDuration(minutes) {
+  if (minutes == null || Number.isNaN(Number(minutes))) return "";
+  const totalMinutes = Number(minutes);
+  if (!Number.isFinite(totalMinutes)) return "";
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return mins ? `${hours}h ${mins} min` : `${hours}h`;
+}
+
+function isDirectVideoFile(url) {
+  if (typeof url !== "string") return false;
+  return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+}
+
+function toEmbeddableVideoUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) return "";
+
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const videoId = url.searchParams.get("v");
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" && parts[1]) return rawUrl;
+    }
+
+    if (host === "youtu.be") {
+      const videoId = url.pathname.split("/").filter(Boolean)[0];
+      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    if (host === "vimeo.com") {
+      const videoId = url.pathname.split("/").filter(Boolean)[0];
+      if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    }
+
+    if (host === "player.vimeo.com") return rawUrl;
+
+    return rawUrl;
+  } catch {
+    return "";
+  }
+}
+
+function MetaPill({ children }) {
+  return (
+    <span
+      style={{
+        fontSize: 12,
+        fontWeight: 900,
+        padding: "4px 8px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "#f8fafc",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function LessonNavButton({ to, label, disabled }) {
   if (disabled) {
     return (
@@ -89,10 +162,10 @@ export default function LessonViewerPage() {
       // Load lesson detail: course-scoped first, then global
       try {
         const l = await getLessonForCourseApi(courseId, lessonId);
-        setLesson(l);
+        setLesson(normalizeLessonResponse(l));
       } catch {
         const l = await getLessonApi(lessonId);
-        setLesson(l);
+        setLesson(normalizeLessonResponse(l));
       }
     } catch (e) {
       const msg =
@@ -187,11 +260,9 @@ export default function LessonViewerPage() {
     return <div style={{ opacity: 0.75, fontWeight: 900 }}>Lesson not found.</div>;
   }
 
-  // Content rendering:
-  // If backend returns HTML, we show it as plain text by default (safe).
-  // Later you can add a sanitizer if you truly need raw HTML rendering.
-  const content =
-    lesson.content ?? lesson.body ?? lesson.text ?? lesson.description ?? "";
+  const videoUrl = lesson.video_url ?? lesson.videoUrl ?? "";
+  const embedUrl = videoUrl && !isDirectVideoFile(videoUrl) ? toEmbeddableVideoUrl(videoUrl) : "";
+  const durationText = formatDuration(lesson.duration);
   const statusText = typeof statusMsg === "string" ? statusMsg : toMessageText(statusMsg, "");
   const isSuccessStatus = statusText.toLowerCase().includes("complete");
 
@@ -202,6 +273,10 @@ export default function LessonViewerPage() {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 1000 }}>
             {lesson.title ?? "Lesson"}
           </h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {lesson.order != null && <MetaPill>Lesson {lesson.order}</MetaPill>}
+            {durationText && <MetaPill>Duration: {durationText}</MetaPill>}
+          </div>
           <div style={{ fontSize: 13, opacity: 0.75 }}>
             <Link to={`/courses/${courseId}`} style={{ fontWeight: 900 }}>
               ← Back to course
@@ -229,11 +304,80 @@ export default function LessonViewerPage() {
           borderRadius: 16,
           padding: 14,
           background: "white",
-          lineHeight: 1.6,
-          whiteSpace: "pre-wrap",
+          display: "grid",
+          gap: 10,
         }}
       >
-        {content || <span style={{ opacity: 0.75 }}>No content.</span>}
+        <div style={{ fontWeight: 1000 }}>Lesson Media</div>
+
+        {videoUrl ? (
+          <>
+            <div
+              style={{
+                width: "100%",
+                aspectRatio: "16 / 9",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#000",
+                border: "1px solid #111827",
+              }}
+            >
+              {isDirectVideoFile(videoUrl) ? (
+                <video
+                  controls
+                  preload="metadata"
+                  style={{ width: "100%", height: "100%", display: "block" }}
+                  src={videoUrl}
+                />
+              ) : embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  title={lesson.title ?? "Lesson video"}
+                  style={{ width: "100%", height: "100%", border: 0 }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "white",
+                    fontWeight: 900,
+                    padding: 16,
+                    textAlign: "center",
+                  }}
+                >
+                  Video URL is not embeddable in the player.
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, opacity: 0.75 }}>No video URL provided.</div>
+        )}
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 16,
+          padding: 14,
+          background: "white",
+          display: "grid",
+          gap: 8,
+        }}
+      >
+        <div style={{ fontWeight: 1000 }}>Lesson Details</div>
+        <div style={{ fontSize: 13, opacity: 0.8 }}>
+          {lesson.order != null ? `Order: ${lesson.order}` : "Order: N/A"}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.8 }}>
+          {durationText ? `Duration: ${durationText}` : "Duration: N/A"}
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>

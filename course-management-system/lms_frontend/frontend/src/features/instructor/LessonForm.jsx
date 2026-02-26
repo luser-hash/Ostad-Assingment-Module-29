@@ -45,7 +45,7 @@ export default function LessonForm({ initialValues, onSubmit, submitLabel, loadi
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <Input label="Order (optional)" type="number" error={errors.order?.message} {...register("order")} />
-        <Input label="Duration (sec, optional)" type="number" error={errors.duration?.message} {...register("duration")} />
+        <Input label="Duration (minutes, optional)" type="number" error={errors.duration?.message} {...register("duration")} />
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

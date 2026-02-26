@@ -308,7 +308,7 @@ export default function CourseDetailsPage() {
                 </div>
 
                 <Link
-                  to={`/courses/${courseId}/lessons/${lesson.id}`}
+                  to={`/courses/${courseId}/lessons/${lesson.id}/`}
                   style={{
                     textDecoration: "none",
                     fontWeight: 900,
