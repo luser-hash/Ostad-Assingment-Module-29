@@ -1,8 +1,10 @@
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
+from django.db.models import Count
 
 from rest_framework import generics, permissions, serializers
 from rest_framework.views import APIView, Response
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Course, Lessons, Enrollment, LessonProgress
 
@@ -22,10 +24,40 @@ from .permissions import (
 )
 
 
+class CourseListPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"  # frontend can override it
+    max_page_size = 30
+
+
 class CourseListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
-    queryset = Course.objects.select_related("instructor").all().order_by("-created_at")
     serializer_class = CourseSerializer
+    pagination_class = CourseListPagination
+
+    queryset = (
+        Course.objects
+        .select_related("instructor")
+        .annotate(lessons_count=Count("lessons"))
+        .order_by("-created_at")
+    )
+
+
+class InstructorCourseListApiView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsInstructor]
+    serializer_class = CourseSerializer
+    pagination_class = CourseListPagination
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return (
+            Course.objects
+            .filter(instructor=user)  
+            .select_related("instructor")
+            .annotate(lessons_count=Count("lessons"))
+            .order_by("-created_at")
+        )
 
 
 class CourseDetailView(generics.RetrieveAPIView):
@@ -55,7 +87,7 @@ class LessonListByCourseView(generics.ListAPIView):
     def get_queryset(self):
         course_id = self.kwargs["course_id"]
         return Lessons.objects.filter(course_id=course_id).order_by("order")
-    
+
 
 class LessonCreateApiView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsCourseOwnerInstructor]
@@ -94,7 +126,7 @@ class MyEnrolledCoursesApiView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Course.objects.filter(enrollmentcourses__student=user).order_by('-created_at')
-    
+
 
 class MarkLessonCompletedApiView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsStudent]
@@ -121,7 +153,7 @@ class LessonPogressApiView(APIView):
             lesson=lesson,
             completed=True
             ).first()
-        
+
         completed = is_completed.completed if is_completed else False
 
         return Response(
@@ -131,7 +163,7 @@ class LessonPogressApiView(APIView):
                 "Completed": completed,
             }
         )
-    
+
 
 class CourseProgressApiView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -141,7 +173,7 @@ class CourseProgressApiView(APIView):
         # Check user role == student
         if request.user.role != 'student':
             return Response({"detail": "Only students can view their progress."})
-        
+
         # get the course
         course = get_object_or_404(Course, pk=course_id)
 
@@ -152,7 +184,7 @@ class CourseProgressApiView(APIView):
         ).exists()
         if not enrolled:
             return Response({"detail": "You're not enrolled to this course. Enroll First to see Progress!"})
-        
+
         # Count all course lessons
         total = course.lessons.count()
 

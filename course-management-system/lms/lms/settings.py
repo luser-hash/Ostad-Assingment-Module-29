@@ -46,9 +46,13 @@ INSTALLED_APPS = [
     # Rest Framewok
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+
+    # CORS
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,6 +63,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'lms.urls'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]
 
 TEMPLATES = [
     {

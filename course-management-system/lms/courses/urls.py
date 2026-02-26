@@ -4,6 +4,7 @@ from .views import (
     CourseDetailView,
     CreateCourseView,
     CourseUpdateDeletView,
+    InstructorCourseListApiView,
 
     LessonListByCourseView,
     LessonCreateApiView,
@@ -24,6 +25,7 @@ urlpatterns = [
     path("courses/<int:pk>/", CourseDetailView.as_view()),
     path("courses/create/", CreateCourseView.as_view()),
     path("courses/<int:pk>/manage/", CourseUpdateDeletView.as_view()),
+    path("instructor/courses/", InstructorCourseListApiView.as_view()),
 
     # URLs for Lessons
     path("courses/<int:course_id>/lessons/", LessonListByCourseView.as_view()),

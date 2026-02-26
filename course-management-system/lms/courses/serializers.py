@@ -48,10 +48,11 @@ class CourseSerializer(serializers.ModelSerializer):
         source="instructor.username",
         read_only=True
     )
+    lessons_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = models.Course
-        fields = ["id", "title", "description", "thumbnail", "instructor", "instructor_name", "created_at"]
+        fields = ["id", "title", "description", "thumbnail", "instructor", "instructor_name", "lessons_count", "created_at"]
         read_only_fields = ["instructor", "created_at"]
 
 
@@ -64,7 +65,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Course
-        fields = CourseSerializer.Meta.fields + ["lessons"]
+        fields = ["id", "title", "description", "thumbnail", "instructor", "instructor_name", "created_at", "lessons"]
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
