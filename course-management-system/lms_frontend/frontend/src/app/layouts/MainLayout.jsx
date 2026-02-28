@@ -1,89 +1,93 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, NavLink as RouterNavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
-import { toastShow } from "../../shared/ui/toastStore";
+import { toastShow } from "@/components/ui/toast-store";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-function NavLink({ to, children }) {
+function AppNavLink({ to, children }) {
   return (
-    <Link
+    <RouterNavLink
       to={to}
-      style={{
-        textDecoration: "none",
-        padding: "8px 10px",
-        borderRadius: 10,
-        border: "1px solid #e5e7eb",
-        color: "#111827",
-        fontWeight: 700,
-        fontSize: 13,
-        whiteSpace: "nowrap",
-      }}
+      className={({ isActive }) =>
+        `rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+          isActive
+            ? "bg-primary text-primary-foreground shadow"
+            : "border border-border/70 bg-background/75 text-foreground hover:bg-accent hover:text-accent-foreground"
+        }`
+      }
     >
       {children}
-    </Link>
+    </RouterNavLink>
   );
 }
 
 export default function MainLayout() {
   const { isAuthed, user, logout } = useAuth();
+  const role = user?.role;
+  const isStudent = role === "student";
+  const isInstructor = role === "instructor";
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <header
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 10,
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: "1px solid #e5e7eb",
-          paddingBottom: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link to="/courses" style={{ textDecoration: "none", color: "#111827" }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>LMS</div>
+    <div className="lms-page">
+      <header className="lms-surface flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <Link to="/courses" className="inline-flex items-center gap-2 no-underline">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-black text-primary-foreground">
+              LMS
+            </span>
+            <div>
+              <div className="text-base font-extrabold leading-none">Learning Hub</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {isAuthed ? "Dashboard" : "Public catalog"}
+              </div>
+            </div>
           </Link>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {isAuthed ? `Signed in${user?.email ? `: ${user.email}` : ""}` : "Guest"}
+          {isAuthed && role && (
+            <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[11px] uppercase tracking-wide">
+              {role}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-xl border border-border/70 bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+            {isAuthed ? `Signed in${user?.email ? ` as ${user.email}` : ""}` : "Guest session"}
           </div>
         </div>
 
-        <nav style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <NavLink to="/courses">Courses</NavLink>
+        <nav className="flex flex-wrap gap-2">
+          <AppNavLink to="/courses">Courses</AppNavLink>
 
-          {isAuthed && <NavLink to="/my-courses">My Enrolled</NavLink>}
-          {isAuthed && user?.role === "instructor" && (
-            <NavLink to="/instructor/courses">Instructor</NavLink>
+          {isAuthed && isStudent && <AppNavLink to="/my-courses">My Enrolled</AppNavLink>}
+          {isAuthed && isInstructor && (
+            <AppNavLink to="/instructor/courses">Instructor</AppNavLink>
           )}
 
           {!isAuthed ? (
             <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
+              <AppNavLink to="/login">Login</AppNavLink>
+              <AppNavLink to="/register">Register</AppNavLink>
             </>
           ) : (
-            <button
-              onClick={ () => {
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => {
                 logout();
                 toastShow("Logged out", "success");
               }}
-              style={{
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid #111827",
-                background: "white",
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
             >
               Logout
-            </button>
+            </Button>
           )}
         </nav>
       </header>
 
-      <main>
+      <main className="lms-surface p-4 sm:p-6">
         <Outlet />
       </main>
     </div>
   );
 }
+

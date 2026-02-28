@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import Spinner from "../../shared/ui/Spinner";
-import Input from "../../shared/ui/Input";
+import Spinner from "@/components/ui/spinner";
+import Input from "@/components/ui/input-field";
 import CourseCard from "../../entities/course/CourseCard";
 import { listCoursesApi } from "../../entities/course/courseApi";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 export default function CourseListPage() {
   const [courses, setCourses] = useState([]);
@@ -46,83 +48,50 @@ export default function CourseListPage() {
   }, [courses, q]);
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
-        <div style={{ flex: "1 1 320px" }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>Courses</h2>
-          <div style={{ marginTop: 6, opacity: 0.75, fontSize: 13 }}>
-            Browse available courses and view details.
+    <div className="lms-page">
+      <section className="rounded-3xl border border-border/70 bg-gradient-to-br from-cyan-50 to-amber-50 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[240px] flex-1">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Catalog</div>
+            <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Discover your next course</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Browse available courses and start building practical skills.
+            </p>
+          </div>
+
+          <div className="w-full max-w-[420px] flex-1">
+            <Input
+              label="Search"
+              placeholder="Search by title or description..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
         </div>
-
-        <div style={{ flex: "1 1 320px", maxWidth: 420 }}>
-          <Input
-            label="Search"
-            placeholder="Search by title or description..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-      </div>
+      </section>
 
       {loading && <Spinner label="Loading courses..." />}
 
       {!loading && error && (
-        <div
-          style={{
-            border: "1px solid #fecaca",
-            background: "#fff1f2",
-            color: "#991b1b",
-            padding: 12,
-            borderRadius: 14,
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 12,
-            alignItems: "center",
-            flexWrap: "wrap",
-            fontWeight: 800,
-          }}
-        >
-          <div>{error}</div>
-          <button
-            onClick={load}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid #991b1b",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
+        <Alert variant="destructive" className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <AlertTitle>Failed to load courses</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </div>
+          <Button variant="outline" onClick={load}>
             Retry
-          </button>
-        </div>
+          </Button>
+        </Alert>
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <div
-          style={{
-            border: "1px dashed #d1d5db",
-            padding: 18,
-            borderRadius: 16,
-            textAlign: "center",
-            opacity: 0.8,
-            fontWeight: 700,
-          }}
-        >
+        <div className="rounded-2xl border border-dashed p-5 text-center text-sm font-semibold text-muted-foreground">
           No courses found{q.trim() ? " for your search." : "."}
         </div>
       )}
 
       {!loading && !error && filtered.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 12,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
           {filtered.map((course) => (
             <CourseCard key={course.id} course={course} />
           ))}
@@ -131,3 +100,4 @@ export default function CourseListPage() {
     </div>
   );
 }
+

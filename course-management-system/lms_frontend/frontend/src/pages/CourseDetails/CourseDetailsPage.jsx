@@ -1,28 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import Spinner from "../../shared/ui/Spinner";
-import Button from "../../shared/ui/Button";
+import Spinner from "@/components/ui/spinner";
+import Button from "@/components/ui/button-loading";
 import { getCourseApi } from "../../entities/course/courseApi";
 import { listLessonsForCourseApi } from "../../entities/lesson/lessonApi";
 import { enrollInCourseApi } from "../../features/enroll/enrollApi";
 import { useAuth } from "../../app/providers/AuthProvider";
 import ManageLessonsPanel from "../../features/instructor/ManageLessonsPanel";
 import { getCourseProgressApi } from "../../features/enroll/progressReadApi";
+import { toastShow } from "@/components/ui/toast-store";
 
 function Pill({ children }) {
   return (
-    <span
-      style={{
-        fontSize: 12,
-        padding: "4px 8px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        opacity: 0.85,
-        fontWeight: 800,
-        whiteSpace: "nowrap",
-      }}
-    >
+    <span className="whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
       {children}
     </span>
   );
@@ -52,10 +43,18 @@ function getMessageText(value, fallback = "") {
   return String(value);
 }
 
+function truncateText(text, max = 40) {
+  const value = String(text ?? "");
+  return value.length > max ? `${value.slice(0, max)}...` : value;
+}
+
 export default function CourseDetailsPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { isAuthed, user } = useAuth();
+  const role = user?.role;
+  const isStudent = role === "student";
+  const isInstructor = role === "instructor";
 
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
@@ -64,10 +63,18 @@ export default function CourseDetailsPage() {
   const [error, setError] = useState("");
 
   const [enrolling, setEnrolling] = useState(false);
-  const [enrollMsg, setEnrollMsg] = useState("");
 
   const [completedSet, setCompletedSet] = useState(new Set());
   const [progressLoading, setProgressLoading] = useState(false);
+  const [lessonCreateRequestKey, setLessonCreateRequestKey] = useState(0);
+  const [lessonEditRequest, setLessonEditRequest] = useState(null);
+
+  function scrollToManageLessons() {
+    const el = document.getElementById("manage-lessons-panel");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   async function load() {
     setError("");
@@ -77,40 +84,36 @@ export default function CourseDetailsPage() {
       const c = await getCourseApi(courseId);
       setCourse(c);
 
-      // 1) Try inline lessons first
       const inline = Array.isArray(c?.lessons) ? c.lessons : null;
 
       if (inline) {
         setLessons(inline);
       } else {
-        // 2) Fallback to separate endpoint
         const data = await listLessonsForCourseApi(courseId);
         const items = Array.isArray(data) ? data : data?.results ?? [];
         setLessons(items);
       }
 
-      if (isAuthed) {
+      if (isAuthed && isStudent) {
         setProgressLoading(true);
         try {
           const p = await getCourseProgressApi(courseId);
-
-          // Normalize shapes:
-          // A) { completed_lessons: [11,12] }
           const ids = Array.isArray(p?.completed_lessons)
             ? p.completed_lessons
             : Array.isArray(p)
-              ? p.filter(x => x.completed).map(x => x.lesson) // B) list of rows
+              ? p.filter((x) => x.completed).map((x) => x.lesson)
               : [];
 
           setCompletedSet(new Set(ids.map(String)));
         } catch {
-          // ignore if endpoint not ready yet
           setCompletedSet(new Set());
         } finally {
           setProgressLoading(false);
         }
+      } else {
+        setCompletedSet(new Set());
+        setProgressLoading(false);
       }
-
     } catch (e) {
       const msg = getMessageText(
         e?.response?.data?.detail ?? e?.response?.data?.message ?? e?.response?.data,
@@ -125,71 +128,82 @@ export default function CourseDetailsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  }, [courseId, isAuthed, isStudent]);
 
   const canEnroll = useMemo(() => {
-    // You can customize logic: only students can enroll
-    if (!isAuthed) return true; // will redirect to login
+    if (!isAuthed) return true;
     if (user?.role && user.role !== "student") return false;
     return true;
   }, [isAuthed, user]);
 
-  async function handleEnroll() {
-    setEnrollMsg("");
+  const isCourseOwner = useMemo(() => {
+    if (!isInstructor || !course?.instructor || !user?.id) return false;
+    return String(course.instructor) === String(user.id);
+  }, [course?.instructor, isInstructor, user?.id]);
 
+  async function handleEnroll() {
     if (!isAuthed) {
       navigate("/login", { replace: true, state: { from: `/courses/${courseId}` } });
       return;
     }
 
     if (!canEnroll) {
-      setEnrollMsg("Only students can enroll.");
+      toastShow("Only students can enroll.", "error");
       return;
     }
 
     setEnrolling(true);
     try {
       await enrollInCourseApi(courseId);
-      setEnrollMsg("Enrolled successfully!");
+      toastShow("Enrolled successfully!", "success");
     } catch (e) {
       const msg = getMessageText(
         e?.response?.data?.detail ?? e?.response?.data?.message ?? e?.response?.data,
         "Enrollment failed."
       );
-      setEnrollMsg(msg);
+      toastShow(msg, "error");
     } finally {
       setEnrolling(false);
     }
+  }
+
+  function handleAddLesson() {
+    setLessonEditRequest(null);
+    setLessonCreateRequestKey((v) => v + 1);
+    setTimeout(scrollToManageLessons, 0);
+  }
+
+  function handleEditLesson(lesson) {
+    if (!lesson?.id) return;
+    setLessonEditRequest({ lessonId: lesson.id, key: Date.now() });
+    setTimeout(scrollToManageLessons, 0);
+  }
+
+  function handleLessonCreated(created) {
+    if (!created) return;
+    setLessons((prev) => [...prev, created].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  }
+
+  function handleLessonUpdated(updated) {
+    if (!updated?.id) return;
+    setLessons((prev) =>
+      prev
+        .map((lesson) => (lesson.id === updated.id ? updated : lesson))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    );
   }
 
   if (loading) return <Spinner label="Loading course..." />;
 
   if (error) {
     return (
-      <div style={{ display: "grid", gap: 12 }}>
-        <div
-          style={{
-            border: "1px solid #fecaca",
-            background: "#fff1f2",
-            color: "#991b1b",
-            padding: 12,
-            borderRadius: 14,
-            fontWeight: 900,
-          }}
-        >
+      <div className="grid gap-3">
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 font-semibold text-destructive">
           {error}
         </div>
         <button
           onClick={load}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid #111827",
-            background: "white",
-            fontWeight: 900,
-            cursor: "pointer",
-            width: "fit-content",
-          }}
+          className="w-fit rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           Retry
         </button>
@@ -198,138 +212,118 @@ export default function CourseDetailsPage() {
   }
 
   if (!course) {
-    return (
-      <div style={{ opacity: 0.75, fontWeight: 800 }}>
-        Course not found.
-      </div>
-    );
+    return <div className="text-sm font-semibold text-muted-foreground">Course not found.</div>;
   }
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 1000 }}>
-            {course.title ?? "Untitled course"}
-          </h2>
+    <div className="lms-page">
+      <section className="rounded-3xl border border-border/70 bg-gradient-to-br from-cyan-50 to-amber-50 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap justify-between gap-4">
+          <div className="grid min-w-[260px] flex-1 gap-3">
+            <Link to="/courses" className="text-xs font-bold text-primary no-underline hover:underline">
+              ← Back to courses
+            </Link>
 
-          {course.description && (
-            <div style={{ opacity: 0.8, lineHeight: 1.45 }}>{course.description}</div>
-          )}
+            <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
+              {course.title ?? "Untitled course"}
+            </h2>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {course.instructor_name && <Pill>{course.instructor_name}</Pill>}
-            {typeof course.lessons_count === "number" && <Pill>{course.lessons_count} lessons</Pill>}
-            {typeof course.price === "number" && <Pill>${course.price}</Pill>}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 10, alignContent: "start", minWidth: 220 }}>
-          <Button onClick={handleEnroll} loading={enrolling}>
-            Enroll
-          </Button>
-
-          {enrollMsg && (
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 800,
-                color: enrollMsg.toLowerCase().includes("success") ? "#16a34a" : "#991b1b",
-              }}
-            >
-              {enrollMsg}
+            <div className="flex flex-wrap gap-2">
+              {course.instructor_name && <Pill>{course.instructor_name}</Pill>}
+              {typeof course.lessons_count === "number" && <Pill>{course.lessons_count} lessons</Pill>}
+              {typeof course.price === "number" && <Pill>${course.price}</Pill>}
             </div>
-          )}
 
-          <Link to="/courses" style={{ fontSize: 13, fontWeight: 800 }}>
-            ← Back to courses
-          </Link>
-        </div>
-      </div>
-
-      <section style={{ display: "grid", gap: 10 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 1000 }}>Lessons</h3>
-
-        {progressLoading && (
-          <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 800 }}>
-            Loading progress…
+            {course.description && (
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{course.description}</p>
+            )}
           </div>
-        )}
+
+          <div className="grid content-start gap-2">
+            {(!isAuthed || isStudent) && (
+              <Button onClick={handleEnroll} loading={enrolling} className="rounded-xl">
+                Enroll
+              </Button>
+            )}
+
+            {isCourseOwner && (
+              <button
+                type="button"
+                onClick={handleAddLesson}
+                className="rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                + Add New Lesson
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-lg font-extrabold tracking-tight">Lessons</h3>
+          {isStudent && progressLoading && (
+            <span className="text-xs font-semibold text-muted-foreground">Loading progress...</span>
+          )}
+        </div>
 
         {lessons.length === 0 ? (
-          <div
-            style={{
-              border: "1px dashed #d1d5db",
-              padding: 14,
-              borderRadius: 14,
-              opacity: 0.8,
-              fontWeight: 800,
-            }}
-          >
+          <div className="rounded-2xl border border-dashed border-border p-4 text-sm font-semibold text-muted-foreground">
             No lessons yet.
           </div>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className="grid gap-2.5">
             {lessons.map((lesson, idx) => (
               <div
                 key={lesson.id ?? idx}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 14,
-                  padding: 12,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-sm"
               >
-                <div style={{ display: "grid", gap: 4 }}>
-                  <div style={{ fontWeight: 1000, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{lesson.title ?? `Lesson ${idx + 1}`}</span>
-                    {completedSet.has(String(lesson.id)) && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 1000,
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          border: "1px solid #16a34a",
-                          color: "#16a34a",
-                        }}
-                      >
-                        ✓ Completed
+                <div className="grid gap-1">
+                  <div className="flex items-center gap-2 text-sm font-extrabold">
+                    <span title={lesson.title ?? `Lesson ${idx + 1}`}>
+                      {truncateText(lesson.title ?? `Lesson ${idx + 1}`)}
+                    </span>
+                    {isStudent && completedSet.has(String(lesson.id)) && (
+                      <span className="rounded-full border border-emerald-500/50 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-black text-emerald-700">
+                        Completed
                       </span>
                     )}
                   </div>
-                  {lesson.summary && (
-                    <div style={{ fontSize: 13, opacity: 0.75 }}>{lesson.summary}</div>
-                  )}
+                  {lesson.summary && <div className="text-xs text-muted-foreground">{lesson.summary}</div>}
                 </div>
 
-                <Link
-                  to={`/courses/${courseId}/lessons/${lesson.id}/`}
-                  style={{
-                    textDecoration: "none",
-                    fontWeight: 900,
-                    fontSize: 13,
-                    color: "white",
-                    background: "#111827",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    textAlign: "center",
-                  }}
-                >
-                  Open lesson
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  {isCourseOwner && (
+                    <button
+                      type="button"
+                      onClick={() => handleEditLesson(lesson)}
+                      className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      Edit lesson
+                    </button>
+                  )}
+
+                  <Link
+                    to={`/courses/${courseId}/lessons/${lesson.id}`}
+                    className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground no-underline transition-opacity hover:opacity-90"
+                  >
+                    Open lesson
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {isAuthed && user?.role === "instructor" && (
-        <ManageLessonsPanel courseId={courseId} />
+      {isAuthed && isCourseOwner && (
+        <ManageLessonsPanel
+          courseId={courseId}
+          createRequestKey={lessonCreateRequestKey}
+          editRequest={lessonEditRequest}
+          onLessonCreated={handleLessonCreated}
+          onLessonUpdated={handleLessonUpdated}
+        />
       )}
     </div>
   );

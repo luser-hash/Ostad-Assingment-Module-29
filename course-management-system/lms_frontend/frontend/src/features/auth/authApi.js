@@ -14,7 +14,7 @@ export async function registerApi(payload) {
 
 export async function loginApi(payload) {
   // payload: { username, password }
-  // POST /token/ -> { access, refresh }
+  // POST /token/ -> { access } (+ HttpOnly refresh cookie)
   const { data } = await http.post("/auth/token/", payload);
   return data;
 }

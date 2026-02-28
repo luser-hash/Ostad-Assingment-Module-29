@@ -14,3 +14,18 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Cross-Site Auth Notes
+
+This frontend sends authenticated requests with `withCredentials: true`, so cross-site refresh cookies only work when the backend cookie is configured as:
+
+- `SameSite=None`
+- `Secure=true`
+
+Modern browsers will reject cross-site cookies over plain HTTP. If the frontend and backend are on different sites, serve both over HTTPS and point `VITE_API_BASE_URL` to that HTTPS backend origin.
+
+Example:
+
+```env
+VITE_API_BASE_URL=https://api.example.local/api
+```

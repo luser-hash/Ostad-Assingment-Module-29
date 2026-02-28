@@ -4,8 +4,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import Input from "../../shared/ui/Input";
-import Button from "../../shared/ui/Button";
+import Input from "@/components/ui/input-field";
+import Button from "@/components/ui/button-loading";
 import AuthCard from "../../features/auth/AuthCard";
 import { loginApi, meApi } from "../../features/auth/authApi";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -37,10 +37,9 @@ export default function LoginPage() {
     try {
       const data = await loginApi(values);
 
-      // Expecting: { access, refresh }
+      // Expecting: { access } and refresh cookie set by backend.
       login({
         access: data.access,
-        refresh: data.refresh
       });
 
       // If backend doesn't return user, try to fetch /me
@@ -64,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <AuthCard title="Login" subtitle="Access your LMS account">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: "grid", gap: 12 }}>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
         <Input
           label="Username"
           placeholder="username"
@@ -81,17 +80,15 @@ export default function LoginPage() {
         />
 
         {serverError && (
-          <div style={{ color: "#ef4444", fontSize: 13, fontWeight: 700 }}>
-            {serverError}
-          </div>
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive">{serverError}</div>
         )}
 
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isSubmitting} className="h-10 rounded-xl">
           Login
         </Button>
 
-        <div style={{ fontSize: 13, opacity: 0.75 }}>
-          Don’t have an account? <Link to="/register">Register</Link>
+        <div className="text-xs text-muted-foreground">
+          Don't have an account? <Link to="/register" className="font-semibold text-primary">Register</Link>
         </div>
       </form>
     </AuthCard>

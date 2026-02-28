@@ -4,8 +4,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 
-import Input from "../../shared/ui/Input";
-import Button from "../../shared/ui/Button";
+import Input from "@/components/ui/input-field";
+import Button from "@/components/ui/button-loading";
 import AuthCard from "../../features/auth/AuthCard";
 import { registerApi } from "../../features/auth/authApi";
 
@@ -57,7 +57,7 @@ export default function RegisterPage() {
 
   return (
     <AuthCard title="Register" subtitle="Create a new LMS account">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: "grid", gap: 12 }}>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
         <Input
           label="Username"
           placeholder="exampleUsername"
@@ -80,37 +80,33 @@ export default function RegisterPage() {
           {...register("password")}
         />
 
-        <div style={{ display: "grid", gap: 6 }}>
-          <label style={{ fontSize: 13, fontWeight: 700 }}>Role</label>
+        <div className="grid gap-1.5">
+          <label className="text-sm font-medium">Role</label>
           <select
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
             {...register("role")}
           >
             <option value="student">Student</option>
             <option value="instructor">Instructor</option>
           </select>
           {errors.role?.message && (
-            <div style={{ color: "#ef4444", fontSize: 12 }}>{errors.role.message}</div>
+            <div className="text-xs font-medium text-destructive">{errors.role.message}</div>
           )}
         </div>
 
         {serverError && (
-          <div style={{ color: "#ef4444", fontSize: 13, fontWeight: 700 }}>
-            {serverError}
-          </div>
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive">{serverError}</div>
         )}
         {serverOk && (
-          <div style={{ color: "#16a34a", fontSize: 13, fontWeight: 700 }}>
-            {serverOk}
-          </div>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-700">{serverOk}</div>
         )}
 
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isSubmitting} className="h-10 rounded-xl">
           Create account
         </Button>
 
-        <div style={{ fontSize: 13, opacity: 0.75 }}>
-          Already have an account? <Link to="/login">Login</Link>
+        <div className="text-xs text-muted-foreground">
+          Already have an account? <Link to="/login" className="font-semibold text-primary">Login</Link>
         </div>
       </form>
     </AuthCard>

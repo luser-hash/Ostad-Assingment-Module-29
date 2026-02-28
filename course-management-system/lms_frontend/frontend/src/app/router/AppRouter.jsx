@@ -12,7 +12,7 @@ import MyEnrolledCoursesPage from "../../pages/MyEnrolledCourses/MyEnrolledCours
 import InstructorCoursesPage from "../../pages/InstructorCourses/InstructorCoursesPage";
 import LessonViewerPage from "../../pages/LessonViewer/LessonViewerPage";
 import NotFoundPage from "../../pages/NotFoundPage";
-import ToastHost from "../../shared/ui/ToastHost";
+import ToastHost from "@/components/ui/toast-host";
 
 function Shell() {
   return (
@@ -39,8 +39,13 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: "/my-courses", element: <MyEnrolledCoursesPage /> },
           { path: "/courses/:courseId/lessons/:lessonId", element: <LessonViewerPage /> },
+
+          // student-only
+          {
+            element: <RoleGuard allow={["student"]} />,
+            children: [{ path: "/my-courses", element: <MyEnrolledCoursesPage /> }],
+          },
 
           // instructor-only
           {
@@ -54,3 +59,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

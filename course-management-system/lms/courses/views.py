@@ -119,11 +119,13 @@ class LessonUpdateDeleteApiView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = LessonSerializers
     
     def get_object(self):
-        return get_object_or_404(
+        obj = get_object_or_404(
             Lessons.objects.select_related("course"),
             pk=self.kwargs["lesson_id"],
             course_id=self.kwargs["course_id"],
         )
+        self.check_object_permissions(self.request, obj)
+        return obj
 
 
 class EnrollCourseAPiView(generics.CreateAPIView):

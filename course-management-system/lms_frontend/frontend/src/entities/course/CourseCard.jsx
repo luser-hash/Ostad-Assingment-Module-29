@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 function getCourseThumbnailUrl(thumbnail) {
   if (!thumbnail || typeof thumbnail !== "string") return "";
@@ -17,102 +20,56 @@ function getCourseThumbnailUrl(thumbnail) {
 
 export default function CourseCard({ course }) {
   const thumbnailUrl = getCourseThumbnailUrl(course?.thumbnail);
+  const courseId = course?.id;
 
   return (
-    <div
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 16,
-        padding: 14,
-        display: "grid",
-        gap: 10,
-        background: "white",
-      }}
-    >
-      <div
-        style={{
-          borderRadius: 12,
-          overflow: "hidden",
-          background: "#f3f4f6",
-          aspectRatio: "16 / 9",
-          border: "1px solid #e5e7eb",
-          display: "grid",
-          placeItems: "center",
-        }}
-      >
+    <Card className="group overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="relative aspect-video border-b border-border/70 bg-muted">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
             alt={course?.title ? `${course.title} thumbnail` : "Course thumbnail"}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
         ) : (
-          <span style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>No thumbnail</span>
-        )}
-      </div>
-
-      <div style={{ display: "grid", gap: 6 }}>
-        <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.2 }}>
-          {course.title ?? "Untitled course"}
-        </div>
-
-        {course.description && (
-          <div style={{ fontSize: 13, opacity: 0.75 }}>
-            {course.description.length > 140
-              ? course.description.slice(0, 140) + "…"
-              : course.description}
+          <div className="grid h-full place-items-center text-xs font-semibold text-muted-foreground">
+            No thumbnail
           </div>
         )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900/45 to-transparent" />
       </div>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <CardHeader className="pb-2">
+        <CardTitle className="line-clamp-2 text-base leading-snug tracking-tight">
+          {course.title ?? "Untitled course"}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="flex flex-wrap items-center gap-2 pt-0">
         {course.instructor_name && (
-          <span
-            style={{
-              fontSize: 12,
-              padding: "4px 8px",
-              borderRadius: 999,
-              border: "1px solid #e5e7eb",
-              opacity: 0.85,
-              fontWeight: 700,
-            }}
-          >
+          <Badge variant="secondary" className="font-semibold">
             {course.instructor_name}
-          </span>
+          </Badge>
         )}
-
         {typeof course.lessons_count === "number" && (
-          <span
-            style={{
-              fontSize: 12,
-              padding: "4px 8px",
-              borderRadius: 999,
-              border: "1px solid #e5e7eb",
-              opacity: 0.85,
-              fontWeight: 700,
-            }}
-          >
+          <Badge variant="outline" className="font-semibold">
             {course.lessons_count} lessons
-          </span>
+          </Badge>
         )}
-      </div>
+      </CardContent>
 
-      <Link
-        to={`/courses/${course.id}`}
-        style={{
-          textDecoration: "none",
-          fontWeight: 900,
-          fontSize: 13,
-          color: "white",
-          background: "#111827",
-          padding: "10px 12px",
-          borderRadius: 12,
-          textAlign: "center",
-        }}
-      >
-        View details
-      </Link>
-    </div>
+      <CardFooter className="pt-2">
+        {courseId ? (
+          <Button asChild className="w-full rounded-xl">
+            <Link to={`/courses/${courseId}`}>View details</Link>
+          </Button>
+        ) : (
+          <Button className="w-full rounded-xl" disabled>
+            View details
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
   );
 }

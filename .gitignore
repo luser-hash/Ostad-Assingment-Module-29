@@ -1,2 +1,5 @@
 course-management-system/lms/courses/tests.py
 course-management-system/lms/users/tests.py
+course-management-system/lms_frontend/frontend/FRONTEND_STRUCTURE.md
+course-management-system/lms/AUTH_ENV.example
+course-management-system/lms_frontend/frontend/.env

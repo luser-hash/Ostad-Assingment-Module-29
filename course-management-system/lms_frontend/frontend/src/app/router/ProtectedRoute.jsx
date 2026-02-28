@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import Spinner from "../../shared/ui/Spinner";
+import Spinner from "@/components/ui/spinner";
 import { useAuth } from "../providers/AuthProvider";
 
 // wrap protected routes

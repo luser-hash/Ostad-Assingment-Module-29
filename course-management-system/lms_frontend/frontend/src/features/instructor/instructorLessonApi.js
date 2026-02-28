@@ -5,7 +5,7 @@ import { http } from "../../services/api/http";
 *  return lessons of a given course 
 */
 export async function listLessonsApi(courseId) {
-    const data = await http.get(`/courses/${courseId}/lessons/`);
+    const { data } = await http.get(`/courses/${courseId}/lessons/`);
     return data;
 }
 

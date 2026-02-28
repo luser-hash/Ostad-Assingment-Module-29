@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import Input from "../../shared/ui/Input";
-import Button from "../../shared/ui/Button";
+import Input from "@/components/ui/input-field";
+import Button from "@/components/ui/button-loading";
 
 const schema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -38,31 +38,24 @@ export default function LessonForm({ initialValues, onSubmit, submitLabel, loadi
   const busy = loading || isSubmitting;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} style={{ display: "grid", gap: 12 }}>
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
       <Input label="Title" error={errors.title?.message} {...register("title")} />
 
       <Input label="Video URL (optional)" error={errors.video_url?.message} {...register("video_url")} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid gap-3 sm:grid-cols-2">
         <Input label="Order (optional)" type="number" error={errors.order?.message} {...register("order")} />
         <Input label="Duration (minutes, optional)" type="number" error={errors.duration?.message} {...register("duration")} />
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <Button type="submit" loading={busy}>{submitLabel}</Button>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <Button type="submit" loading={busy} className="rounded-xl">{submitLabel}</Button>
 
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
+            className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             Cancel
           </button>
@@ -71,3 +64,4 @@ export default function LessonForm({ initialValues, onSubmit, submitLabel, loadi
     </form>
   );
 }
+

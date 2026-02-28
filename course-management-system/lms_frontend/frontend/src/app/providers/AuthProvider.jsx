@@ -29,7 +29,7 @@ export function AuthProvider({ children }){
 
                 const { data } = await http.get("/me/");
                 if (!ignore) setUser(data);
-            } catch (e) {
+            } catch {
                 // if token is invalid, clear all
                 tokenStorage.clear();
                 setAccessToken(null);
@@ -45,18 +45,36 @@ export function AuthProvider({ children }){
         };
     }, []);
 
+    useEffect(() => {
+        function handleForcedLogout() {
+            setAccessToken(null);
+            setUser(null);
+        }
+
+        window.addEventListener("auth:logged-out", handleForcedLogout);
+        return () => {
+            window.removeEventListener("auth:logged-out", handleForcedLogout);
+        };
+    }, []);
+
     // login function. called after the api returns tokens
-    const login = ({ access, refresh, user: userPayload}) => {
-        tokenStorage.setTokens({ access, refresh }); // save tokens to storage
+    const login = ({ access, user: userPayload}) => {
+        tokenStorage.setAccess(access); // save access token to storage
         setAccessToken(access); // update react state 
         setUser(userPayload ?? null); // set user if backend returns any
     }; 
 
     // logout function
-    const logout = () => {
-        tokenStorage.clear(); // deletes token
-        setAccessToken(null); // reset state
-        setUser(null); // set user null
+    const logout = async () => {
+        try {
+            await http.post("/auth/logout/", {}, { skipAuthRefresh: true });
+        } catch {
+            // Best-effort logout; always clear local auth state.
+        } finally {
+            tokenStorage.clear(); // deletes token
+            setAccessToken(null); // reset state
+            setUser(null); // set user null
+        }
     }
 
     // value object + useMemo

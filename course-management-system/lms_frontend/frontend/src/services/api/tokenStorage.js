@@ -2,12 +2,14 @@ export const tokenStorage = {
     getAccess() {
         return localStorage.getItem("access_token");
     },
-    getRefresh() {
-        return localStorage.getItem("refresh_token");
-    },
-    setTokens({ access, refresh }) {
+    setAccess(access) {
+        if (!access) return;
         localStorage.setItem("access_token", access);
-        localStorage.setItem("refresh_token", refresh);
+        // Cleanup old storage model (refresh token moved to HttpOnly cookie).
+        localStorage.removeItem("refresh_token");
+    },
+    setTokens({ access }) {
+        this.setAccess(access);
     },
     clear() {
         localStorage.removeItem("access_token");

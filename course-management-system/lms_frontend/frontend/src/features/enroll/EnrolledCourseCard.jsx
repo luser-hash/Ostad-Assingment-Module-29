@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import ProgressBar from "../../shared/ui/ProgressBar";
+import ProgressBar from "@/components/ui/progress-bar";
 
 export default function EnrolledCourseCard({ enrollment }) {
   // Normalize shapes:
@@ -9,23 +9,14 @@ export default function EnrolledCourseCard({ enrollment }) {
   const courseId = course.id;
 
   return (
-    <div
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 16,
-        padding: 14,
-        display: "grid",
-        gap: 10,
-        background: "white",
-      }}
-    >
-      <div style={{ display: "grid", gap: 6 }}>
-        <div style={{ fontSize: 16, fontWeight: 1000, lineHeight: 1.2 }}>
+    <div className="grid gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <div className="grid gap-1.5">
+        <div className="line-clamp-2 text-base font-extrabold leading-tight">
           {course.title ?? "Untitled course"}
         </div>
 
         {course.description && (
-          <div style={{ fontSize: 13, opacity: 0.75 }}>
+          <div className="line-clamp-3 text-xs text-muted-foreground">
             {course.description.length > 120
               ? course.description.slice(0, 120) + "…"
               : course.description}
@@ -35,23 +26,19 @@ export default function EnrolledCourseCard({ enrollment }) {
 
       <ProgressBar value={progress} />
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <Link
-          to={`/courses/${courseId}`}
-          style={{
-            textDecoration: "none",
-            fontWeight: 900,
-            fontSize: 13,
-            color: "#111827",
-            background: "white",
-            padding: "10px 12px",
-            borderRadius: 12,
-            textAlign: "center",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          View course
-        </Link>
+      <div className="flex flex-wrap gap-2">
+        {courseId ? (
+          <Link
+            to={`/courses/${courseId}`}
+            className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            View course
+          </Link>
+        ) : (
+          <div className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground">
+            Course unavailable
+          </div>
+        )}
       </div>
     </div>
   );

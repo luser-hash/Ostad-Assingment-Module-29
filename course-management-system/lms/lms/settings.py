@@ -10,11 +10,26 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
+import os
 from datetime import timedelta
+from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_list(name, default=""):
+    raw_value = os.environ.get(name, default)
+    return [item.strip().rstrip("/") for item in raw_value.split(",") if item.strip()]
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,9 +39,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-az+5ll9%95)$$94*7vh2oji%t1&6#6w3e3&kkt1bwj!xq6&yn%'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool("DJANGO_DEBUG", True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 
 # Application definition
@@ -64,9 +79,24 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'lms.urls'
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-]
+FRONTEND_ORIGINS = _env_list(
+    "FRONTEND_ORIGINS",
+    ",".join(
+        [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://localhost:5173",
+            "https://127.0.0.1:5173",
+        ]
+    ),
+)
+
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = _env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    ",".join(FRONTEND_ORIGINS),
+)
 
 TEMPLATES = [
     {
@@ -100,8 +130,46 @@ REST_FRAMEWORK = {
 # Longer access token lifetime
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7)
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# Cookie-based refresh token settings
+# Cross-site cookies require SameSite=None and Secure=true in modern browsers.
+JWT_REFRESH_COOKIE_NAME = os.environ.get("JWT_REFRESH_COOKIE_NAME", "refresh_token")
+JWT_REFRESH_COOKIE_PATH = os.environ.get("JWT_REFRESH_COOKIE_PATH", "/api/auth/")
+JWT_REFRESH_COOKIE_DOMAIN = os.environ.get("JWT_REFRESH_COOKIE_DOMAIN") or None
+JWT_REFRESH_COOKIE_SECURE = _env_bool("JWT_REFRESH_COOKIE_SECURE", True)
+JWT_REFRESH_COOKIE_HTTP_ONLY = _env_bool("JWT_REFRESH_COOKIE_HTTP_ONLY", True)
+JWT_REFRESH_COOKIE_SAMESITE = os.environ.get("JWT_REFRESH_COOKIE_SAMESITE", "None").strip().title()
+
+if JWT_REFRESH_COOKIE_SAMESITE not in {"Lax", "Strict", "None"}:
+    raise ImproperlyConfigured(
+        "JWT_REFRESH_COOKIE_SAMESITE must be one of: Lax, Strict, None."
+    )
+
+if JWT_REFRESH_COOKIE_SAMESITE == "None" and not JWT_REFRESH_COOKIE_SECURE:
+    raise ImproperlyConfigured(
+        "Cross-site refresh cookies require JWT_REFRESH_COOKIE_SECURE=true."
+    )
+
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", JWT_REFRESH_COOKIE_SECURE)
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", JWT_REFRESH_COOKIE_SAMESITE).strip().title()
+
+if CSRF_COOKIE_SAMESITE not in {"Lax", "Strict", "None"}:
+    raise ImproperlyConfigured(
+        "CSRF_COOKIE_SAMESITE must be one of: Lax, Strict, None."
+    )
+
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", JWT_REFRESH_COOKIE_SECURE)
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax").strip().title()
+
+if SESSION_COOKIE_SAMESITE not in {"Lax", "Strict", "None"}:
+    raise ImproperlyConfigured(
+        "SESSION_COOKIE_SAMESITE must be one of: Lax, Strict, None."
+    )
 
 
 # Database

@@ -1,15 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import Panel from "../../shared/ui/Panel";
-import Spinner from "../../shared/ui/Spinner";
+import Spinner from "@/components/ui/spinner";
+import { toastShow } from "@/components/ui/toast-store";
 import LessonForm from "./LessonForm";
 import {
   createLessonApi,
-  deleteLessonApi,
   listLessonsApi,
   updateLessonApi,
 } from "./instructorLessonApi";
 
-export default function ManageLessonsPanel({ courseId }) {
+function getErrorMessage(error, fallback) {
+  return (
+    error?.response?.data?.detail ||
+    error?.response?.data?.message ||
+    (error?.response?.data && typeof error.response.data === "object"
+      ? Object.values(error.response.data).flat().join(" ")
+      : null) ||
+    fallback
+  );
+}
+
+export default function ManageLessonsPanel({
+  courseId,
+  createRequestKey = 0,
+  editRequest = null,
+  onLessonCreated,
+  onLessonUpdated,
+}) {
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -17,11 +33,9 @@ export default function ManageLessonsPanel({ courseId }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(null); // lesson
   const [busyId, setBusyId] = useState(null);
-  const [msg, setMsg] = useState("");
 
   async function load() {
     setErr("");
-    setMsg("");
     setLoading(true);
     try {
       const data = await listLessonsApi(courseId);
@@ -41,6 +55,23 @@ export default function ManageLessonsPanel({ courseId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
+  useEffect(() => {
+    if (!createRequestKey) return;
+    setEditing(null);
+    setCreating(true);
+  }, [createRequestKey]);
+
+  useEffect(() => {
+    const lessonId = editRequest?.lessonId;
+    if (!lessonId) return;
+
+    const target = lessons.find((l) => String(l.id) === String(lessonId));
+    if (!target) return;
+
+    setCreating(false);
+    setEditing(target);
+  }, [editRequest, lessons]);
+
   const initialCreateValues = useMemo(() => ({
     title: "",
     content: "",
@@ -50,15 +81,16 @@ export default function ManageLessonsPanel({ courseId }) {
   }), [lessons]);
 
   async function onCreate(values) {
-    setMsg("");
     setBusyId("create");
     try {
       const created = await createLessonApi(courseId, values);
       setLessons((prev) => [...prev, created].sort((a,b)=> (a.order??0)-(b.order??0)));
+      onLessonCreated?.(created);
       setCreating(false);
-      setMsg("Lesson created.");
+      toastShow("Lesson created.", "success");
     } catch (e) {
-      setMsg(e?.response?.data?.detail || "Create failed.");
+      const msg = getErrorMessage(e, "Create failed.");
+      toastShow(msg, "error");
     } finally {
       setBusyId(null);
     }
@@ -66,77 +98,42 @@ export default function ManageLessonsPanel({ courseId }) {
 
   async function onUpdate(values) {
     if (!editing?.id) return;
-    setMsg("");
     setBusyId(editing.id);
     try {
       const updated = await updateLessonApi(courseId, editing.id, values);
       setLessons((prev) =>
         prev.map((l) => (l.id === editing.id ? updated : l)).sort((a,b)=> (a.order??0)-(b.order??0))
       );
+      onLessonUpdated?.(updated);
       setEditing(null);
-      setMsg("Lesson updated.");
+      toastShow("Lesson updated.", "success");
     } catch (e) {
-      setMsg(e?.response?.data?.detail || "Update failed.");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function onDelete(lesson) {
-    const ok = confirm(`Delete lesson "${lesson.title ?? "Untitled"}"?`);
-    if (!ok) return;
-
-    setMsg("");
-    setBusyId(lesson.id);
-    try {
-      await deleteLessonApi(courseId, lesson.id);
-      setLessons((prev) => prev.filter((l) => l.id !== lesson.id));
-      setMsg("Lesson deleted.");
-      if (editing?.id === lesson.id) setEditing(null);
-    } catch (e) {
-      setMsg(e?.response?.data?.detail || "Delete failed.");
+      const msg = getErrorMessage(e, "Update failed.");
+      toastShow(msg, "error");
     } finally {
       setBusyId(null);
     }
   }
 
   return (
-    <Panel
-      title="Manage lessons (Instructor)"
-      right={
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={() => load()}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            onClick={() => { setEditing(null); setCreating(v => !v); }}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid #111827",
-              background: "#111827",
-              color: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            {creating ? "Close" : "New lesson"}
-          </button>
-        </div>
-      }
+    <div
+      id="manage-lessons-panel"
+      className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4"
     >
-      {msg && (
-        <div style={{ fontWeight: 900, opacity: 0.85 }}>{msg}</div>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-extrabold uppercase tracking-wide text-muted-foreground">
+          Lesson Editor
+        </h4>
+        {!loading && lessons.length > 0 && (
+          <span className="text-xs font-semibold text-muted-foreground">{lessons.length} lessons loaded</span>
+        )}
+      </div>
+
+      {loading && <Spinner label="Loading lesson editor..." />}
+      {!loading && err && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive">
+          {err}
+        </div>
       )}
 
       {creating && (
@@ -163,79 +160,7 @@ export default function ManageLessonsPanel({ courseId }) {
           onCancel={() => setEditing(null)}
         />
       )}
-
-      {loading && <Spinner label="Loading lessons..." />}
-      {!loading && err && (
-        <div style={{ color: "#991b1b", fontWeight: 900 }}>{err}</div>
-      )}
-
-      {!loading && !err && lessons.length === 0 && (
-        <div style={{ opacity: 0.75, fontWeight: 900 }}>No lessons yet.</div>
-      )}
-
-      {!loading && !err && lessons.length > 0 && (
-        <div style={{ display: "grid", gap: 10 }}>
-          {lessons.map((l) => (
-            <div
-              key={l.id}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 14,
-                padding: 12,
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "grid", gap: 4 }}>
-                <div style={{ fontWeight: 1000 }}>
-                  {l.order ? `${l.order}. ` : ""}{l.title ?? "Untitled"}
-                </div>
-                {(l.duration != null) && (
-                  <div style={{ fontSize: 12, opacity: 0.75, fontWeight: 800 }}>
-                    Duration: {l.duration} min
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  disabled={busyId === l.id}
-                  onClick={() => { setCreating(false); setEditing(l); }}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "white",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  Edit
-                </button>
-
-                <button
-                  disabled={busyId === l.id}
-                  onClick={() => onDelete(l)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #991b1b",
-                    background: "white",
-                    color: "#991b1b",
-                    fontWeight: 1000,
-                    cursor: "pointer",
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Panel>
+    </div>
   );
 }
+
