@@ -1,40 +1,60 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Spinner from "@/components/ui/spinner";
 import Input from "@/components/ui/input-field";
 import CourseCard from "../../entities/course/CourseCard";
-import { listCoursesApi } from "../../entities/course/courseApi";
+import { listCoursesByPageApi } from "../../entities/course/courseApi";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
+const PAGE_SIZE = 10;
+
 export default function CourseListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [courses, setCourses] = useState([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pageCount, setPageCount] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
 
-  async function load() {
+  const currentPage = Math.max(1, Number(searchParams.get("page")) || 1);
+
+  async function load(page = 1) {
     setError("");
     setLoading(true);
     try {
-      const data = await listCoursesApi();
+      const data = await listCoursesByPageApi(page);
 
-      // DRF sometimes paginates: { results: [...] }
       const items = Array.isArray(data) ? data : data?.results ?? [];
       setCourses(items);
+      setHasNextPage(Boolean(data?.next));
+      setHasPreviousPage(Boolean(data?.previous));
+
+      if (typeof data?.count === "number") {
+        setPageCount(Math.max(1, Math.ceil(data.count / PAGE_SIZE)));
+      } else {
+        setPageCount(1);
+      }
     } catch (e) {
       const msg =
         e?.response?.data?.detail ||
         e?.response?.data?.message ||
         "Failed to load courses.";
       setError(msg);
+      setCourses([]);
+      setPageCount(1);
+      setHasNextPage(false);
+      setHasPreviousPage(false);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    load(currentPage);
+  }, [currentPage]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -46,6 +66,31 @@ export default function CourseListPage() {
       return title.includes(query) || desc.includes(query);
     });
   }, [courses, q]);
+
+  const pageNumbers = useMemo(() => {
+    const pages = [];
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(pageCount, currentPage + 2);
+
+    for (let page = start; page <= end; page += 1) {
+      pages.push(page);
+    }
+
+    return pages;
+  }, [currentPage, pageCount]);
+
+  function changePage(page) {
+    const nextPage = Math.min(Math.max(1, page), pageCount);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextPage <= 1) {
+        next.delete("page");
+      } else {
+        next.set("page", String(nextPage));
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="lms-page">
@@ -78,7 +123,7 @@ export default function CourseListPage() {
             <AlertTitle>Failed to load courses</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </div>
-          <Button variant="outline" onClick={load}>
+          <Button variant="outline" onClick={() => load(currentPage)}>
             Retry
           </Button>
         </Alert>
@@ -91,11 +136,67 @@ export default function CourseListPage() {
       )}
 
       {!loading && !error && filtered.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
-          {filtered.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
+            {filtered.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </div>
+
+          {pageCount > 1 && (
+            <nav
+              aria-label="Course pages"
+              className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-border/70 bg-card/70 p-3"
+            >
+              <Button
+                variant="outline"
+                onClick={() => changePage(currentPage - 1)}
+                disabled={!hasPreviousPage}
+              >
+                Previous
+              </Button>
+
+              {pageNumbers[0] > 1 && (
+                <Button variant="outline" onClick={() => changePage(1)}>
+                  1
+                </Button>
+              )}
+
+              {pageNumbers[0] > 2 && (
+                <span className="px-2 text-sm font-semibold text-muted-foreground">...</span>
+              )}
+
+              {pageNumbers.map((page) => (
+                <Button
+                  key={page}
+                  variant={page === currentPage ? "default" : "outline"}
+                  onClick={() => changePage(page)}
+                  aria-current={page === currentPage ? "page" : undefined}
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {pageNumbers[pageNumbers.length - 1] < pageCount - 1 && (
+                <span className="px-2 text-sm font-semibold text-muted-foreground">...</span>
+              )}
+
+              {pageNumbers[pageNumbers.length - 1] < pageCount && (
+                <Button variant="outline" onClick={() => changePage(pageCount)}>
+                  {pageCount}
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={() => changePage(currentPage + 1)}
+                disabled={!hasNextPage}
+              >
+                Next
+              </Button>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );
