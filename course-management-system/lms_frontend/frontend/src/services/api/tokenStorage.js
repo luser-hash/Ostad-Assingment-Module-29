@@ -8,9 +8,6 @@ export const tokenStorage = {
         // Cleanup old storage model (refresh token moved to HttpOnly cookie).
         localStorage.removeItem("refresh_token");
     },
-    setTokens({ access }) {
-        this.setAccess(access);
-    },
     clear() {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
