@@ -23,6 +23,7 @@ from .permissions import (
     IsCourseOwnerInstructor,
 )
 
+
 def ensure_lesson_detail_access(user, lesson):
     if getattr(user, "role", None) == "student":
         if Enrollment.objects.filter(student=user, course=lesson.course).exists():
