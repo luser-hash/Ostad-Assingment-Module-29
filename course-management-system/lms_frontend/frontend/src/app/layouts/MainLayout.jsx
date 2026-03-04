@@ -38,7 +38,7 @@ export default function MainLayout() {
             <div>
               <div className="text-base font-extrabold leading-none">Learning Hub</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {isAuthed ? "Dashboard" : "Public catalog"}
+                {isAuthed ? "Dashboard" : "Public View"}
               </div>
             </div>
           </Link>
@@ -51,7 +51,7 @@ export default function MainLayout() {
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="rounded-xl border border-border/70 bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
-            {isAuthed ? `Signed in${user?.email ? ` as ${user.email}` : ""}` : "Guest session"}
+            {isAuthed ? `Signed in${user?.username ? ` as ${user.username}` : ""}` : "Guest session"}
           </div>
         </div>
 

@@ -4,6 +4,7 @@ import { toastShow } from "@/components/ui/toast-store";
 import LessonForm from "./LessonForm";
 import {
   createLessonApi,
+  deleteLessonApi,
   listLessonsApi,
   updateLessonApi,
 } from "./instructorLessonApi";
@@ -25,6 +26,7 @@ export default function ManageLessonsPanel({
   editRequest = null,
   onLessonCreated,
   onLessonUpdated,
+  onLessonDeleted,
 }) {
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,26 @@ export default function ManageLessonsPanel({
     }
   }
 
+  async function onDelete() {
+    if (!editing?.id) return;
+    const ok = confirm(`Delete lesson "${editing.title ?? "Untitled"}"?`);
+    if (!ok) return;
+
+    setBusyId(`delete-${editing.id}`);
+    try {
+      await deleteLessonApi(courseId, editing.id);
+      setLessons((prev) => prev.filter((lesson) => lesson.id !== editing.id));
+      onLessonDeleted?.(editing);
+      setEditing(null);
+      toastShow("Lesson deleted.", "success");
+    } catch (e) {
+      const msg = getErrorMessage(e, "Delete failed.");
+      toastShow(msg, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div
       id="manage-lessons-panel"
@@ -156,6 +178,8 @@ export default function ManageLessonsPanel({
           }}
           submitLabel="Update lesson"
           loading={busyId === editing.id}
+          onDelete={onDelete}
+          deleteLoading={busyId === `delete-${editing.id}`}
           onSubmit={onUpdate}
           onCancel={() => setEditing(null)}
         />

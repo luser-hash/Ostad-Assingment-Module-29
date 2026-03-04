@@ -1,4 +1,4 @@
-// create routing + auth scaffolding 
+// create auth scaffolding 
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { tokenStorage } from "../../services/api/tokenStorage";
@@ -27,8 +27,8 @@ export function AuthProvider({ children }){
                     return;
                 }
 
-                const { data } = await http.get("/me/");
-                if (!ignore) setUser(data);
+                const { data } = await http.get("/me/"); // fetch the me data 
+                if (!ignore) setUser(data); // set the current user 
             } catch {
                 // if token is invalid, clear all
                 tokenStorage.clear();

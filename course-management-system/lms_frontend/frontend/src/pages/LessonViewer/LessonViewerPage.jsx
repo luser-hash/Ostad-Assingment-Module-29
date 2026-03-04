@@ -5,12 +5,12 @@ import Spinner from "@/components/ui/spinner";
 import Button from "@/components/ui/button-loading";
 
 import {
-  getLessonApi,
   getLessonForCourseApi,
   listLessonsForCourseApi,
 } from "../../entities/lesson/lessonApi";
 
 import { markLessonCompleteApi } from "../../features/enroll/progressApi";
+import { getCourseProgressApi as getLessonProgressApi } from "../../features/enroll/progressReadApi";
 import { toastShow } from "@/components/ui/toast-store";
 import { useAuth } from "../../app/providers/AuthProvider";
 
@@ -114,6 +114,7 @@ export default function LessonViewerPage() {
 
   const [lesson, setLesson] = useState(null);
   const [lessonList, setLessonList] = useState([]);
+  const [completedSet, setCompletedSet] = useState(new Set());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -134,13 +135,24 @@ export default function LessonViewerPage() {
       }
       setLessonList(list);
 
-      try {
-        const l = await getLessonForCourseApi(courseId, lessonId);
-        setLesson(normalizeLessonResponse(l));
-      } catch {
-        const l = await getLessonApi(lessonId);
-        setLesson(normalizeLessonResponse(l));
+      if (isStudent) {
+        try {
+          const progress = await getLessonProgressApi(courseId);
+          const completedIds = Array.isArray(progress?.completed_lessons)
+            ? progress.completed_lessons
+            : Array.isArray(progress)
+              ? progress.filter((item) => item.completed).map((item) => item.lesson)
+              : [];
+          setCompletedSet(new Set(completedIds.map(String)));
+        } catch {
+          setCompletedSet(new Set());
+        }
+      } else {
+        setCompletedSet(new Set());
       }
+
+      const l = await getLessonForCourseApi(courseId, lessonId);
+      setLesson(normalizeLessonResponse(l));
     } catch (e) {
       const msg =
         e?.response?.data?.detail ||
@@ -155,7 +167,7 @@ export default function LessonViewerPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, lessonId]);
+  }, [courseId, lessonId, isStudent]);
 
   const nav = useMemo(() => {
     if (!lessonList?.length) return { prev: null, next: null };
@@ -169,15 +181,31 @@ export default function LessonViewerPage() {
     return { prev, next };
   }, [lessonList, lessonId]);
 
+  const isCurrentLessonCompleted = completedSet.has(String(lessonId));
+  const isPreviousLessonLocked = Boolean(
+    isStudent && nav.prev && !completedSet.has(String(nav.prev.id))
+  );
+
   async function markComplete() {
     if (!isStudent) {
       toastShow("Only students can mark lessons complete.", "error");
       return;
     }
 
+    if (isCurrentLessonCompleted) {
+      toastShow("Lesson already completed.", "success");
+      return;
+    }
+
+    if (isPreviousLessonLocked) {
+      toastShow("Complete the previous lesson first.", "error");
+      return;
+    }
+
     setCompleting(true);
     try {
       await markLessonCompleteApi(courseId, lessonId);
+      setCompletedSet((prev) => new Set([...prev, String(lessonId)]));
       toastShow("Marked complete.", "success");
 
       if (nav.next) {
@@ -293,9 +321,21 @@ export default function LessonViewerPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         {isStudent && (
-          <Button onClick={markComplete} loading={completing} className="rounded-xl">
-            Mark complete
-          </Button>
+          <>
+            <Button
+              onClick={markComplete}
+              loading={completing}
+              disabled={isCurrentLessonCompleted || isPreviousLessonLocked}
+              className="rounded-xl"
+            >
+              {isCurrentLessonCompleted ? "Completed" : "Mark complete"}
+            </Button>
+            {isPreviousLessonLocked && (
+              <div className="text-xs font-semibold text-amber-700">
+                Complete the previous lesson first.
+              </div>
+            )}
+          </>
         )}
 
         {nav.next && (

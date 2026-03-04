@@ -6,6 +6,7 @@ import Button from "@/components/ui/button-loading";
 import { getCourseApi } from "../../entities/course/courseApi";
 import { listLessonsForCourseApi } from "../../entities/lesson/lessonApi";
 import { enrollInCourseApi } from "../../features/enroll/enrollApi";
+import { listMyEnrollmentsApi } from "../../features/enroll/enrollmentApi";
 import { useAuth } from "../../app/providers/AuthProvider";
 import ManageLessonsPanel from "../../features/instructor/ManageLessonsPanel";
 import { getCourseProgressApi } from "../../features/enroll/progressReadApi";
@@ -63,6 +64,7 @@ export default function CourseDetailsPage() {
   const [error, setError] = useState("");
 
   const [enrolling, setEnrolling] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
   const [completedSet, setCompletedSet] = useState(new Set());
   const [progressLoading, setProgressLoading] = useState(false);
@@ -97,22 +99,48 @@ export default function CourseDetailsPage() {
       if (isAuthed && isStudent) {
         setProgressLoading(true);
         try {
-          const p = await getCourseProgressApi(courseId);
-          const ids = Array.isArray(p?.completed_lessons)
-            ? p.completed_lessons
-            : Array.isArray(p)
-              ? p.filter((x) => x.completed).map((x) => x.lesson)
-              : [];
+          const [progressResult, enrollmentsResult] = await Promise.allSettled([
+            getCourseProgressApi(courseId),
+            listMyEnrollmentsApi(),
+          ]);
 
-          setCompletedSet(new Set(ids.map(String)));
+          if (progressResult.status === "fulfilled") {
+            const p = progressResult.value;
+            const ids = Array.isArray(p?.completed_lessons)
+              ? p.completed_lessons
+              : Array.isArray(p)
+                ? p.filter((x) => x.completed).map((x) => x.lesson)
+                : [];
+
+            setCompletedSet(new Set(ids.map(String)));
+          } else {
+            setCompletedSet(new Set());
+          }
+
+          if (enrollmentsResult.status === "fulfilled") {
+            const items = Array.isArray(enrollmentsResult.value)
+              ? enrollmentsResult.value
+              : enrollmentsResult.value?.results ?? [];
+
+            const alreadyEnrolled = items.some((item) => {
+              const enrolledCourseId = item?.course?.id ?? item?.course_id ?? item?.id;
+              return String(enrolledCourseId) === String(courseId);
+            });
+
+            setIsEnrolled(alreadyEnrolled);
+          } else {
+            setIsEnrolled(false);
+          }
         } catch {
           setCompletedSet(new Set());
+          setIsEnrolled(false);
         } finally {
           setProgressLoading(false);
         }
       } else {
         setCompletedSet(new Set());
         setProgressLoading(false);
+        setIsEnrolled(false);
       }
     } catch (e) {
       const msg = getMessageText(
@@ -152,9 +180,15 @@ export default function CourseDetailsPage() {
       return;
     }
 
+    if (isEnrolled) {
+      toastShow("You are already enrolled in this course.", "error");
+      return;
+    }
+
     setEnrolling(true);
     try {
       await enrollInCourseApi(courseId);
+      setIsEnrolled(true);
       toastShow("Enrolled successfully!", "success");
     } catch (e) {
       const msg = getMessageText(
@@ -182,6 +216,15 @@ export default function CourseDetailsPage() {
   function handleLessonCreated(created) {
     if (!created) return;
     setLessons((prev) => [...prev, created].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+    setCourse((prev) =>
+      prev
+        ? {
+            ...prev,
+            lessons_count:
+              typeof prev.lessons_count === "number" ? prev.lessons_count + 1 : prev.lessons_count,
+          }
+        : prev
+    );
   }
 
   function handleLessonUpdated(updated) {
@@ -190,6 +233,22 @@ export default function CourseDetailsPage() {
       prev
         .map((lesson) => (lesson.id === updated.id ? updated : lesson))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    );
+  }
+
+  function handleLessonDeleted(deleted) {
+    if (!deleted?.id) return;
+    setLessons((prev) => prev.filter((lesson) => lesson.id !== deleted.id));
+    setCourse((prev) =>
+      prev
+        ? {
+            ...prev,
+            lessons_count:
+              typeof prev.lessons_count === "number"
+                ? Math.max(0, prev.lessons_count - 1)
+                : prev.lessons_count,
+          }
+        : prev
     );
   }
 
@@ -241,8 +300,13 @@ export default function CourseDetailsPage() {
 
           <div className="grid content-start gap-2">
             {(!isAuthed || isStudent) && (
-              <Button onClick={handleEnroll} loading={enrolling} className="rounded-xl">
-                Enroll
+              <Button
+                onClick={handleEnroll}
+                loading={enrolling}
+                disabled={isStudent && isEnrolled}
+                className="rounded-xl"
+              >
+                {isStudent && isEnrolled ? "Enrolled" : "Enroll"}
               </Button>
             )}
 
@@ -323,6 +387,7 @@ export default function CourseDetailsPage() {
           editRequest={lessonEditRequest}
           onLessonCreated={handleLessonCreated}
           onLessonUpdated={handleLessonUpdated}
+          onLessonDeleted={handleLessonDeleted}
         />
       )}
     </div>

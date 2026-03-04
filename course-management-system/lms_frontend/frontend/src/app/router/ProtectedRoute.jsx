@@ -14,6 +14,7 @@ export default function ProtectedRoute() {
     // if not autheticated redirect to login
     if (!isAuthed) {
         return <Navigate to="/login" replace state={{ from: location.pathname }}/>
+        // stores the original path, so after login the app can send user back where they wanted to go
     }
 
     return <Outlet />

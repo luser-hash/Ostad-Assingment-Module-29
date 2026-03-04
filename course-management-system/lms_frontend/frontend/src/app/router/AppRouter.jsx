@@ -14,6 +14,10 @@ import LessonViewerPage from "../../pages/LessonViewer/LessonViewerPage";
 import NotFoundPage from "../../pages/NotFoundPage";
 import ToastHost from "@/components/ui/toast-host";
 
+// This is the central route configuration for the entire frontend
+// From here we control the public routes, role based routes, protected routes.
+
+// Shell wrapper ensures every route inside children will render inside the same shared layout
 function Shell() {
   return (
     <AppShell>
@@ -23,13 +27,17 @@ function Shell() {
   );
 }
 
+// createBrowserRouter define URL-based routes
 export const router = createBrowserRouter([
   {
-    element: <Shell />,
-    children: [
-      { path: "/", element: <Navigate to="/courses" replace /> },
+    element: <Shell />, // layout route
 
-      // public
+    // For any matching child path, React router renders this as follow:
+    // 1. shell 2. inside shell MainLayout 3. inside MainLayout's <Outlet/> the matching page
+    children: [
+      { path: "/", element: <Navigate to="/courses" replace /> }, // root url
+
+      // public, accessible without authentication.
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/courses", element: <CourseListPage /> },

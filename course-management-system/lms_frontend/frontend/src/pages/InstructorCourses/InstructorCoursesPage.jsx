@@ -39,7 +39,7 @@ function CourseRow({ course, onEdit, onDelete, busy }) {
         <div className="mt-1 flex flex-wrap gap-3">
           {course?.id ? (
             <Link to={`/courses/${course.id}`} className="text-xs font-bold text-primary no-underline hover:underline">
-              View public page
+              View Course page
             </Link>
           ) : (
             <span className="text-xs font-bold text-muted-foreground">Unavailable</span>
@@ -165,7 +165,7 @@ export default function InstructorCoursesPage() {
     <div className="lms-page">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px] flex-1">
-          <h2 className="text-2xl font-extrabold tracking-tight">Instructor Studio</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight">Instructor Dashboard</h2>
           <div className="mt-1 text-sm text-muted-foreground">
             Build and manage your courses from one place.
           </div>

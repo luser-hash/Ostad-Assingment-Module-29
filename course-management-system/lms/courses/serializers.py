@@ -105,4 +105,16 @@ class LessonProgressSerializer(serializers.ModelSerializer):
         if not models.Enrollment.objects.filter(student=user, course=lesson.course).exists():
             raise serializers.ValidationError({"detail": "You're not enrolled in this course."})
 
+        previous_lesson = (
+            models.Lessons.objects.filter(course=lesson.course, order__lt=lesson.order)
+            .order_by("-order")
+            .first()
+        )
+        if previous_lesson and not models.LessonProgress.objects.filter(
+            student=user,
+            lesson=previous_lesson,
+            completed=True,
+        ).exists():
+            raise serializers.ValidationError({"detail": "Complete the previous lesson first."})
+
         return attrs

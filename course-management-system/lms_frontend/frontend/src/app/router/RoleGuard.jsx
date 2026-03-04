@@ -11,10 +11,14 @@ export default function RoleGuard({ allow = [] }) {
 
   if (booting) return <Spinner label="Checking permissions..." />;
 
+  // Read user.role
   const role = user?.role;
+  // Check whether the role is in the allow array
   const ok = role && allow.includes(role);
 
+  // If not allowed, redirect to /courses.
   if (!ok) return <Navigate to="/courses" replace />;
 
+  // If allowed, render <Outlet />.
   return <Outlet />;
 }

@@ -23,6 +23,17 @@ from .permissions import (
     IsCourseOwnerInstructor,
 )
 
+def ensure_lesson_detail_access(user, lesson):
+    if getattr(user, "role", None) == "student":
+        if Enrollment.objects.filter(student=user, course=lesson.course).exists():
+            return
+        raise PermissionDenied("You are not enrolled in this course.")
+
+    if getattr(user, "role", None) == "instructor":
+        return
+
+    raise PermissionDenied("You do not have access to this lesson.")
+
 
 class CourseListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
@@ -82,24 +93,33 @@ class LessonListByCourseView(generics.ListAPIView):
     
 
 class CourseLessonDetailApiView(generics.ListAPIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = LessonSerializers
 
     # url: courses/course_id/lessons/lesson_id
     def get_queryset(self):
-        course = self.kwargs["course_id"]
-        lesson = self.kwargs["lesson_id"]
+        lesson = get_object_or_404(
+            Lessons.objects.select_related("course"),
+            course_id=self.kwargs["course_id"],
+            id=self.kwargs["lesson_id"],
+        )
+        ensure_lesson_detail_access(self.request.user, lesson)
 
-        return Lessons.objects.filter(course=course, id=lesson)
+        return Lessons.objects.filter(id=lesson.id)
 
 
 class LessonDetailApiView(generics.ListAPIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = LessonSerializers
 
     def get_queryset(self):
-        lesson_id = self.kwargs['lesson_id']
-        return Lessons.objects.filter(id=lesson_id)
+        lesson = get_object_or_404(
+            Lessons.objects.select_related("course"),
+            id=self.kwargs["lesson_id"],
+        )
+        ensure_lesson_detail_access(self.request.user, lesson)
+
+        return Lessons.objects.filter(id=lesson.id)
 
 
 class LessonCreateApiView(generics.CreateAPIView):

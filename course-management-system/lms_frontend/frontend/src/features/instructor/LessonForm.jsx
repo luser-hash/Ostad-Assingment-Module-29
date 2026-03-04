@@ -13,7 +13,16 @@ const schema = z.object({
   duration: z.coerce.number().int().min(0, "Duration must be >= 0").optional(),
 });
 
-export default function LessonForm({ initialValues, onSubmit, submitLabel, loading, onCancel }) {
+export default function LessonForm({
+  initialValues,
+  onSubmit,
+  submitLabel,
+  loading,
+  onCancel,
+  onDelete,
+  deleteLabel = "Delete lesson",
+  deleteLoading = false,
+}) {
   const {
     register,
     handleSubmit,
@@ -51,11 +60,23 @@ export default function LessonForm({ initialValues, onSubmit, submitLabel, loadi
       <div className="flex flex-wrap gap-2 pt-1">
         <Button type="submit" loading={busy} className="rounded-xl">{submitLabel}</Button>
 
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy || deleteLoading}
+            className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleteLoading ? "Deleting..." : deleteLabel}
+          </button>
+        )}
+
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent hover:text-accent-foreground"
+            disabled={busy || deleteLoading}
+            className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
